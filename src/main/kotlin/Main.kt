@@ -20,7 +20,6 @@ fun main() {
     // a = md * b (mod n)
     println(b * md)
 
-
     val maxBound = 23L
     println("Calculating square roots mod $maxBound")
     val ring3 = Zn(maxBound.toMPZ())

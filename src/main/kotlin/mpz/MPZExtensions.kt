@@ -3,12 +3,12 @@ package mpz
 import it.unich.jgmp.MPZ
 import it.unich.jgmp.RandState
 import it.unich.jgmp.MPZ.PrimalityStatus
+import org.example.mpz.RandService
 import java.util.*
 import kotlin.math.absoluteValue
 
 // TODO: Factor randState out of here and into parameters for FP usage.
-private fun randomMPZ(max: MPZ): MPZ {
-    val randState = RandState.randinitMt()
+private fun randomMPZ(randState: RandState, max: MPZ): MPZ {
     return MPZ.urandomm(randState, max)
 }
 
@@ -103,6 +103,9 @@ operator fun MPZ.div(value: Long): MPZ =
 // *** FINITE FIELDS Z_p ***
 // *************************
 class Zn(val modulus: MPZ) {
+    // Service locator pattern for the RandState.
+    private val randState = RandService.randState
+
     // Equivalent to 0 until modulus.
     private val modRange = MPZ_ZERO.rangeUntil(modulus)
 
@@ -162,15 +165,15 @@ class Zn(val modulus: MPZ) {
             when {
                 legendre != Legendre.RESIDUE -> null
                 modulus.isPMod4() -> pow((modulus + 1).divexactUi(4))
-                else -> computeSqrtTonelliShanks()
+                else -> computeSqrtTonelliShanks(randState)
             }
         }
 
         private fun MPZ.isPMod4() = tstbit(0) == 1 && tstbit(1) == 1
 
-        private fun computeSqrtTonelliShanks(): EZn? {
+        private fun computeSqrtTonelliShanks(randState: RandState): EZn {
             val (q, e) = decomposeModulus()
-            val generator = findGenerator()
+            val generator = findGenerator(randState)
             val y = generator.pow(q)
 
             val xInitial = pow((q - 1) / 2)
@@ -195,9 +198,10 @@ class Zn(val modulus: MPZ) {
             return Pair(q, e)
         }
 
-        // TODO: MAKE FUNCTIONAL
-        private tailrec fun findGenerator(n: EZn = EZN_ONE): EZn =
-            if (n.legendre == Legendre.NOT_RESIDUE) n else findGenerator(EZn(randomMPZ(modulus), ring))
+        private tailrec fun findGenerator(randState: RandState, n: EZn = EZN_ONE): EZn = when (n.legendre) {
+            Legendre.NOT_RESIDUE -> n
+            else                 -> findGenerator(randState, EZn(randomMPZ(randState, modulus), ring))
+        }
 
         private tailrec fun findM(b: EZn, r: Long, m: Long = 1): Long {
             val t1 = b.pow(2L.pow(m.toInt()))
