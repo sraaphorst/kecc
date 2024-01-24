@@ -23,5 +23,5 @@ fun main() {
     val ring2 = Zn("13".toMPZ())
     val c = ring2.pull(10.toMPZ())
     val d = a * c
-    print(d)
+    println(d)
 }

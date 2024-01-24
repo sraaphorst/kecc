@@ -62,16 +62,16 @@ class Zn(val modulus: MPZ) {
     }
 
     fun pull(value: MPZ): EZn =
-        EZn(value, modulus)
+        EZn(value, this)
 
-    class EZn(val value: MPZ, val modulus: MPZ) {
+    inner class EZn(val value: MPZ, private val ring: Zn) {
         init {
-//            require(value in mod_range) { "Value must be in the range [0, modulus)" }
+            require(value in mod_range) { "Value must be in the range [0, modulus)" }
         }
 
         private fun perform(op: (MPZ, MPZ) -> MPZ, other: EZn): EZn {
-//            require(ring == other.ring){ "Attempting to perform operation between $this and $other." }
-            return EZn(op(value, other.value).mod(modulus), modulus)
+            require(ring == other.ring){ "Attempting to perform operation between $this and $other." }
+            return EZn(op(value, other.value).mod(modulus), ring)
         }
 
         operator fun plus(other: EZn): EZn =
@@ -85,7 +85,7 @@ class Zn(val modulus: MPZ) {
 
         operator fun div(other: EZn): EZn {
             val otherInv = EZn(other.value.invert(modulus).orElse(null) ?:
-                throw ArithmeticException("$this has no multiplicative inverse."), modulus)
+                throw ArithmeticException("$this has no multiplicative inverse."), ring)
             return perform(MPZ::mul, otherInv)
         }
 
