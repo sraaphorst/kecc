@@ -109,46 +109,37 @@ class Zn(val modulus: MPZ) {
             require(value in modRange) { "Value must be in the range [0, modulus)" }
         }
 
+        private fun perform(op: (MPZ, MPZ, MPZ) -> MPZ, other: MPZ): EZn  =
+            EZn(op(value, other, modulus), ring)
+
         private fun perform(op: (MPZ, MPZ) -> MPZ, other: EZn): EZn {
             require(ring == other.ring){ "Attempting to perform operation between $this and $other." }
             return EZn(op(value, other.value).mod(modulus), ring)
         }
 
-        operator fun plus(other: EZn): EZn =
-            perform(MPZ::add, other)
+        private fun perform(op: (MPZ) -> MPZ): EZn =
+            EZn(op(value).mod(modulus), ring)
 
-        operator fun minus(other: EZn): EZn =
-            perform(MPZ::sub, other)
+        operator fun plus(other: EZn): EZn = perform(MPZ::add, other)
+        operator fun minus(other: EZn): EZn = perform(MPZ::sub, other)
+        operator fun unaryMinus(): EZn = perform(MPZ::neg)
+        operator fun times(other: EZn): EZn = perform(MPZ::mul, other)
 
-        operator fun times(other: EZn): EZn =
-            perform(MPZ::mul, other)
+        operator fun div(other: EZn): EZn =
+            other.invert?.let { perform(MPZ::mul, it) } ?:
+                throw ArithmeticException("$this has no multiplicative inverse.")
 
-        operator fun div(other: EZn): EZn {
-            val otherInv = EZn(other.value.invert(modulus).toKotlinNullable() ?:
-                throw ArithmeticException("$this has no multiplicative inverse."), ring)
-            return perform(MPZ::mul, otherInv)
-        }
-
-        operator fun unaryMinus(): EZn =
-            EZn(value.neg().mod(modulus), ring)
 
         val invert: EZn? by lazy {
             value.invert(modulus).toKotlinNullable()?.let { EZn(it, ring) }
         }
 
-        fun pow(n: MPZ): EZn =
-            EZn(value.powm(n, modulus), ring)
+        fun pow(n: MPZ): EZn = perform(MPZ::powm, n)
 
-        fun pow(n: Long): EZn {
-            if (n == 0L)
-                return EZn(MPZ_ONE, ring)
-
-            // If n < 0, we must invert; otherwise we just proceed.
-            val (a, np) = when {
-                n < 0 -> invert?.let {Pair(invert!!.value, -n) } ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
-                else -> Pair(value, n)
-            }
-            return EZn(a.powmUi(np, modulus), ring)
+        fun pow(n: Long): EZn = when {
+            n == 0L -> EZn(MPZ_ONE, ring)
+            n < 0   -> invert?.pow(-n) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
+            else    -> EZn(value.powmUi(n, modulus), ring)
         }
 
         // Calculate the Legendre symbol, (a/p):
