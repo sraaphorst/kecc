@@ -191,8 +191,9 @@ class Zn(val modulus: MPZ) {
         private fun computeSqrtTonelliShanks(randState: RandState): EZn {
             val (q, e) = decomposeModulus()
             val generator = findGenerator(randState)
+//            val generator = findGenerator(randState, EZn(MPZ("344057873012818")))
+            println("Generator: $generator, ${generator.legendre}")
             val y = generator.pow(q)
-
             val xInitial = pow((q - 1) / 2)
             val bInitial = this * xInitial * xInitial
             val xModified = this * xInitial
@@ -201,6 +202,8 @@ class Zn(val modulus: MPZ) {
                 if (b.value == MPZ_ONE) return x
 
                 val m = findM(b, r)
+                if (r == m)
+                    throw RuntimeException("Unexpected error: $this is not a quadratic residue: ${this.legendre}")
                 val t = y.pow(1L shl (r - m - 1).toInt())
                 return aux(m, x * t, b * t.pow(2))
             }

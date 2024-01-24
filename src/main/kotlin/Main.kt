@@ -35,12 +35,15 @@ fun main() {
 //    val m = MPZ("69256690406912238301")
     val v = MPZ("410468015445649")
     val m = MPZ("755255173926857")
+    val s = MPZ("359242579880426") // as confirmed by C++ program
     val ring4 = Zn(m)
     val elem = ring4.EZn(v)
+    val sqrt_elem = ring4.EZn(s)
     println("Legendre of $elem is ${elem.legendre}")
     println("Inverse is ${elem.invert}")
     println("Product is ${elem.invert!! * elem}")
     println("Calculating square root...")
+    println("Should be ${sqrt_elem}: ${sqrt_elem * sqrt_elem}")
     println("Sqrt is ${elem.sqrt}")
     println("Squared is ${elem.sqrt!! * elem.sqrt!!}")
 }
