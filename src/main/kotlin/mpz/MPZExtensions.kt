@@ -91,12 +91,15 @@ operator fun MPZ.minus(value: Long): MPZ =
     if (value < 0) addUi(value.absoluteValue)
     else subUi(value)
 
+operator fun MPZ.unaryMinus(): MPZ =
+    neg()
+
 operator fun MPZ.div(value: Int): MPZ =
     this / value.toLong()
 
 operator fun MPZ.div(value: Long): MPZ =
     if (value == 0L) throw ArithmeticException("Cannot divide $this by 0.")
-    else div(value)
+    else divexactUi(value)
 
 
 // *************************
@@ -147,11 +150,25 @@ class Zn(val modulus: MPZ) {
             value.invert(modulus).toKotlinNullable()?.let { EZn(it, ring) }
         }
 
-        fun pow(n: MPZ): EZn = perform(MPZ::powm, n)
+        fun pow(n: MPZ): EZn {
+            println("MPZ: $this ^ $n")
+            return perform(MPZ::powm, n)
+        }
 
         fun pow(n: Long): EZn = when {
             n == 0L -> EZN_ONE
-            n < 0 -> invert?.pow(-n) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
+            n < 0 -> {
+                println("INVERSE: $invert")
+                println("n: $n, -n: ${-n}")
+                println("Calling $invert.pow(${-n})")
+                if (n == -n) {
+                    println("Calling with MPZ.")
+                    invert?.pow(-(n.toMPZ())) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
+                } else {
+                    println("Calling recursive.")
+                    invert?.pow(-n) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
+                }
+            }
             else -> EZn(value.powmUi(n, modulus), ring)
         }
 
@@ -180,7 +197,7 @@ class Zn(val modulus: MPZ) {
             val bInitial = this * xInitial * xInitial
             val xModified = this * xInitial
 
-            fun aux(r: Long = e, x: EZn = xModified, b: EZn = bInitial): EZn {
+            tailrec fun aux(r: Long = e, x: EZn = xModified, b: EZn = bInitial): EZn {
                 if (b.value == MPZ_ONE) return x
 
                 val m = findM(b, r)
@@ -208,6 +225,18 @@ class Zn(val modulus: MPZ) {
             return if (t1.value == MPZ_ONE) m else findM(b, r, m + 1)
         }
 
-        override fun toString(): String = "$value (mod $modulus}"
+        override operator fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other == null || this::class != other::class) return false
+            other as EZn
+            if (value != other.value) return false
+            if (ring.modulus != other.ring.modulus) return false
+            return true
+        }
+
+        override fun hashCode(): Int =
+            31 * value.hashCode() + ring.modulus.hashCode()
+
+        override fun toString(): String = "$value (mod $modulus)"
     }
 }
