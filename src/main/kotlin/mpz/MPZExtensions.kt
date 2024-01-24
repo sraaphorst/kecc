@@ -3,7 +3,6 @@ package mpz
 import it.unich.jgmp.MPZ
 import it.unich.jgmp.RandState
 import it.unich.jgmp.MPZ.PrimalityStatus
-import java.rmi.UnexpectedException
 import java.util.*
 import kotlin.math.absoluteValue
 
@@ -18,6 +17,15 @@ private fun randomMPZ(max: MPZ): MPZ {
 // ***************
 fun <T> Optional<T>.toKotlinNullable(): T? = orElse(null)
 
+fun Long.pow(exponent: Int): Long = when (exponent) {
+        0 -> 1L
+        1 -> this
+        else -> {
+            val halfPower = pow(exponent / 2)
+            if (exponent % 2 == 0) halfPower * halfPower
+            else this * halfPower * halfPower
+        }
+    }
 
 // *****************
 // *** CONSTANTS ***
@@ -98,22 +106,24 @@ class Zn(val modulus: MPZ) {
     // Equivalent to 0 until modulus.
     private val modRange = MPZ_ZERO.rangeUntil(modulus)
 
+    val EZN_ONE = EZn(MPZ_ONE, this)
+
     init {
         require(modulus > MPZ_ZERO) { "Modulus must be greater than 0" }
         val primalityStatus = modulus.isProbabPrime(25)
         require(primalityStatus == PrimalityStatus.PRIME || primalityStatus == PrimalityStatus.PROBABLY_PRIME)
     }
 
-    inner class EZn(val value: MPZ, private val ring: Zn = this) {
+    inner class EZn(val value: MPZ, val ring: Zn = this) {
         init {
             require(value in modRange) { "Value must be in the range [0, modulus)" }
         }
 
-        private fun perform(op: (MPZ, MPZ, MPZ) -> MPZ, other: MPZ): EZn  =
+        private fun perform(op: (MPZ, MPZ, MPZ) -> MPZ, other: MPZ): EZn =
             EZn(op(value, other, modulus), ring)
 
         private fun perform(op: (MPZ, MPZ) -> MPZ, other: EZn): EZn {
-            require(ring == other.ring){ "Attempting to perform operation between $this and $other." }
+            require(ring == other.ring) { "Attempting to perform operation between $this and $other." }
             return EZn(op(value, other.value).mod(modulus), ring)
         }
 
@@ -126,8 +136,8 @@ class Zn(val modulus: MPZ) {
         operator fun times(other: EZn): EZn = perform(MPZ::mul, other)
 
         operator fun div(other: EZn): EZn =
-            other.invert?.let { perform(MPZ::mul, it) } ?:
-                throw ArithmeticException("$this has no multiplicative inverse.")
+            other.invert?.let { perform(MPZ::mul, it) }
+                ?: throw ArithmeticException("$this has no multiplicative inverse.")
 
 
         val invert: EZn? by lazy {
@@ -137,9 +147,9 @@ class Zn(val modulus: MPZ) {
         fun pow(n: MPZ): EZn = perform(MPZ::powm, n)
 
         fun pow(n: Long): EZn = when {
-            n == 0L -> EZn(MPZ_ONE, ring)
-            n < 0   -> invert?.pow(-n) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
-            else    -> EZn(value.powmUi(n, modulus), ring)
+            n == 0L -> EZN_ONE
+            n < 0 -> invert?.pow(-n) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
+            else -> EZn(value.powmUi(n, modulus), ring)
         }
 
         // Calculate the Legendre symbol, (a/p):
@@ -148,63 +158,50 @@ class Zn(val modulus: MPZ) {
             Legendre.fromValue(value.legendre(modulus))
         }
 
-        // Calculate the square root mod the modulus.
         val sqrt: EZn? by lazy {
-            // Must be a quadratic residue to have an inverse: if not, terminate.
-            if (legendre != Legendre.RESIDUE)
-                return@lazy null
+            when {
+                legendre != Legendre.RESIDUE -> null
+                modulus.isPMod4() -> pow((modulus + 1).divexactUi(4))
+                else -> computeSqrtTonelliShanks()
+            }
+        }
 
-            // Check if p = 3 (mod 4), this is an easy computation, namely:
-            // a^((p + 1)/4) (mod p).
-            if (modulus.tstbit(0) == 1 && modulus.tstbit(1) == 1)
-                return@lazy pow((modulus + 1).divexact(4.toMPZ()))
+        private fun MPZ.isPMod4() = tstbit(0) == 1 && tstbit(1) == 1
 
-            // Otherwise, we must use Tonelli and Shanks.
-            // Initialize q to n - 1 (even), find # of zeros on right in binary representation, and eliminate them.
+        private fun computeSqrtTonelliShanks(): EZn? {
+            val (q, e) = decomposeModulus()
+            val generator = findGenerator()
+            val y = generator.pow(q)
+
+            val xInitial = pow((q - 1) / 2)
+            val bInitial = this * xInitial * xInitial
+            val xModified = this * xInitial
+
+            fun aux(r: Long = e, x: EZn = xModified, b: EZn = bInitial): EZn {
+                if (b.value == MPZ_ONE) return x
+
+                val m = findM(b, r)
+                val t = y.pow(1L shl (r - m - 1).toInt())
+                return aux(m, x * t, b * t.pow(2))
+            }
+
+            return aux()
+        }
+
+        private fun decomposeModulus(): Pair<MPZ, Long> {
             val mm1 = modulus - 1
             val e = mm1.scan1(0)
             val q = mm1.tdivq2Exp(e)
+            return Pair(q, e)
+        }
 
-            // Find a generator. Randomly search for a non-residue.
-            tailrec fun findGenerator(n: EZn = EZn(MPZ_ONE, ring)): EZn =
-                if (n.legendre != Legendre.NOT_RESIDUE)
-                    findGenerator(EZn(randomMPZ(modulus), ring))
-                else n
-            val generator = findGenerator()
+        // TODO: MAKE FUNCTIONAL
+        private tailrec fun findGenerator(n: EZn = EZN_ONE): EZn =
+            if (n.legendre == Legendre.NOT_RESIDUE) n else findGenerator(EZn(randomMPZ(modulus), ring))
 
-            // Initialize the working components.
-            // y = n^q, where q is an MPZ, so the power is calculated with the modulus.
-            val y = generator.pow(q)
-            var r = e
-
-            // x = a^{(q-1)/2} as q-1 should be exactly divisible by 2 now.
-            var x = pow((q - 1) / 2)
-            var b = this * x * x
-            x = this * x
-
-            // Loop on algorithm until finished or failure.
-            // Terminate when b == 1.
-            while (b.value != MPZ_ONE) {
-                var m = 1L
-                var t1 = b
-                while (m < r) {
-                    t1 *= t1
-                    if (t1.value == MPZ_ONE)
-                        break
-                    ++m
-                }
-
-                // This should never happen as a is a quadratic residue.
-                if (r == m)
-                    throw UnexpectedException("Not a quadratic residue: $this")
-
-                val t = y.pow(1L shl (r -m - 1).toInt())
-                r = m
-                x *= t
-                b *= y
-            }
-
-            return@lazy x
+        private tailrec fun findM(b: EZn, r: Long, m: Long = 1): Long {
+            val t1 = b.pow(2L.pow(m.toInt()))
+            return if (t1.value == MPZ_ONE) m else findM(b, r, m + 1)
         }
 
         override fun toString(): String = "$value (mod $modulus}"
