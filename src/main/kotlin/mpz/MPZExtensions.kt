@@ -193,22 +193,46 @@ class Zn(val modulus: MPZ) {
             val generator = findGenerator(randState)
 //            val generator = findGenerator(randState, EZn(MPZ("344057873012818")))
             println("Generator: $generator, ${generator.legendre}")
-            val y = generator.pow(q)
+            var y = generator.pow(q)
             val xInitial = pow((q - 1) / 2)
             val bInitial = this * xInitial * xInitial
             val xModified = this * xInitial
 
-            tailrec fun aux(r: Long = e, x: EZn = xModified, b: EZn = bInitial): EZn {
+            tailrec fun aux2(r: Long = e, x: EZn = xModified, b: EZn = bInitial): EZn {
                 if (b.value == MPZ_ONE) return x
 
                 val m = findM(b, r)
                 if (r == m)
                     throw RuntimeException("Unexpected error: $this is not a quadratic residue: ${this.legendre}")
                 val t = y.pow(1L shl (r - m - 1).toInt())
-                return aux(m, x * t, b * t.pow(2))
+                return aux2(m, x * t, b * t.pow(2))
             }
 
-            return aux()
+            var x = xModified
+            var r = e
+            var b = bInitial
+            while (b.value != MPZ_ONE) {
+                var m = 1L
+                var t1 = b
+                while (m < r) {
+                    t1 = t1 * t1
+                    if (t1.value == MPZ_ONE)
+                        break
+                    m += 1
+                }
+
+                if (r == m)
+                    throw RuntimeException("Uh oh")
+                var shiftBy = r - m - 1
+                val shift = (1 shl shiftBy.toInt()).toLong()
+                var t = y.pow(shift)
+                y = t * t
+                r = m
+                x = x * t
+                b *= y
+            }
+
+            return x
         }
 
         private fun decomposeModulus(): Pair<MPZ, Long> {
