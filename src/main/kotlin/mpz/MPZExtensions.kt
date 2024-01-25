@@ -182,49 +182,40 @@ class Zn(val modulus: MPZ) {
 
         private fun MPZ.isPMod4() = tstbit(0) == 1 && tstbit(1) == 1
 
-        private fun calcM(r: Long, m: Long, t: EZn): Long {
-            if (m == r) return m
+        private fun calcM(r: Long, t: EZn, m: Long = 1L): Long {
+            if (r == m) return m
             val tNew = t * t
             if (tNew.value == MPZ_ONE) return m
-            return calcM(r, m+1, tNew)
+            return calcM(r, tNew, m+1)
         }
 
         private fun computeSqrtTonelliShanks(randState: RandState): EZn {
             val (q, e) = decomposeModulus()
             val generator = findGenerator(randState)
-            var yInitial = generator.pow(q)
+            val yInitial = generator.pow(q)
             val xInitial = pow((q - 1) / 2)
             val bInitial = this * xInitial * xInitial
             val xModified = this * xInitial
 
-            var x = xModified
-            var y = yInitial
-            var r = e
-            var b = bInitial
+            fun recursiveSqrtTonelliShanks(x: EZn, y: EZn, r: Long, b: EZn): EZn {
+                if (b.value == MPZ_ONE) return x
 
-            while (b.value != MPZ_ONE) {
-//                tailrec fun calcM(m: Long = 1L, t1: EZn = b): Long {
-//                    if (m == r) return m
-//                    val t1New = t1 * t1
-//                    if (t1New.value == MPZ_ONE) return m
-//                    return calcM(m+1, t1New)
-//                }
-                val m = calcM(e, 1L, b)
+                val m = calcM(r, b)
+                if (r == m) throw RuntimeException("Unexpected error: $this is not behaving like a quadratic residue.")
 
-                println("r=$r, m=$m")
-                if (r == m)
-                    throw RuntimeException("Uh oh")
                 val shiftBy = r - m - 1
                 val shift = (1 shl shiftBy.toInt()).toLong()
                 val t = y.pow(shift)
 
-                x = x * t
-                y = t * t
-                r = m
-                b = b * y
+                val newX = x * t
+                val newY = t * t
+                val newR = m
+                val newB = b * newY
+
+                return recursiveSqrtTonelliShanks(newX, newY, newR, newB)
             }
 
-            return x
+            return recursiveSqrtTonelliShanks(xModified, yInitial, e, bInitial)
         }
 
         private fun decomposeModulus(): Pair<MPZ, Long> {
