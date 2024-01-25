@@ -189,6 +189,13 @@ class Zn(val modulus: MPZ) {
             return calcM(r, tNew, m+1)
         }
 
+        private fun decomposeModulus(): Pair<MPZ, Long> {
+            val mm1 = modulus - 1
+            val e = mm1.scan1(0)
+            val q = mm1.tdivq2Exp(e)
+            return Pair(q, e)
+        }
+
         private fun computeSqrtTonelliShanks(randState: RandState): EZn {
             val (q, e) = decomposeModulus()
             val generator = findGenerator(randState)
@@ -218,21 +225,9 @@ class Zn(val modulus: MPZ) {
             return recursiveSqrtTonelliShanks(xModified, yInitial, e, bInitial)
         }
 
-        private fun decomposeModulus(): Pair<MPZ, Long> {
-            val mm1 = modulus - 1
-            val e = mm1.scan1(0)
-            val q = mm1.tdivq2Exp(e)
-            return Pair(q, e)
-        }
-
         private tailrec fun findGenerator(randState: RandState, n: EZn = EZN_ONE): EZn = when (n.legendre) {
             Legendre.NOT_RESIDUE -> n
             else                 -> findGenerator(randState, EZn(randomMPZ(randState, modulus), ring))
-        }
-
-        private tailrec fun findM(b: EZn, r: Long, m: Long = 1): Long {
-            val t1 = b.pow(2L.pow(m.toInt()))
-            return if (t1.value == MPZ_ONE) m else findM(b, r, m + 1)
         }
 
         override operator fun equals(other: Any?): Boolean {
