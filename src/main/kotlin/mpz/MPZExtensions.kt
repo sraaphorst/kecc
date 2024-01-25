@@ -3,6 +3,7 @@ package mpz
 import it.unich.jgmp.MPZ
 import it.unich.jgmp.RandState
 import it.unich.jgmp.MPZ.PrimalityStatus
+import it.unich.jgmp.MPZ.init2
 import org.example.mpz.RandService
 import java.util.*
 import kotlin.math.absoluteValue
@@ -181,52 +182,46 @@ class Zn(val modulus: MPZ) {
 
         private fun MPZ.isPMod4() = tstbit(0) == 1 && tstbit(1) == 1
 
+        private fun calcM(r: Long, m: Long, t: EZn): Long {
+            if (m == r) return m
+            val tNew = t * t
+            if (tNew.value == MPZ_ONE) return m
+            return calcM(r, m+1, tNew)
+        }
+
         private fun computeSqrtTonelliShanks(randState: RandState): EZn {
             val (q, e) = decomposeModulus()
             val generator = findGenerator(randState)
-            var y = generator.pow(q)
+            var yInitial = generator.pow(q)
             val xInitial = pow((q - 1) / 2)
             val bInitial = this * xInitial * xInitial
             val xModified = this * xInitial
 
-            tailrec fun aux2(r: Long = e, x: EZn = xModified, b: EZn = bInitial): EZn {
-                if (b.value == MPZ_ONE) return x
-
-                val m = findM(b, r)
-                if (r == m)
-                    throw RuntimeException("Unexpected error: $this is not a quadratic residue: ${this.legendre}")
-                val t = y.pow(1L shl (r - m - 1).toInt())
-                return aux2(m, x * t, b * t.pow(2))
-            }
-
-            tailrec fun aux(r: Long = e,
-                            x: EZn = xModified,
-                            b: EZn = bInitial): EZn {
-                if (b.value == MPZ_ONE) return x
-                TODO()
-            }
-
             var x = xModified
+            var y = yInitial
             var r = e
             var b = bInitial
-            while (b.value != MPZ_ONE) {
-                tailrec fun calcM(m: Long = 1L, t1: EZn = b): Long {
-                    if (m == r) return m
-                    val t1New = t1 * t1
-                    if (t1New.value == MPZ_ONE) return m
-                    return calcM(m+1, t1New)
-                }
-                val m = calcM()
 
+            while (b.value != MPZ_ONE) {
+//                tailrec fun calcM(m: Long = 1L, t1: EZn = b): Long {
+//                    if (m == r) return m
+//                    val t1New = t1 * t1
+//                    if (t1New.value == MPZ_ONE) return m
+//                    return calcM(m+1, t1New)
+//                }
+                val m = calcM(e, 1L, b)
+
+                println("r=$r, m=$m")
                 if (r == m)
                     throw RuntimeException("Uh oh")
-                var shiftBy = r - m - 1
+                val shiftBy = r - m - 1
                 val shift = (1 shl shiftBy.toInt()).toLong()
-                var t = y.pow(shift)
+                val t = y.pow(shift)
+
+                x = x * t
                 y = t * t
                 r = m
-                x = x * t
-                b *= y
+                b = b * y
             }
 
             return x
