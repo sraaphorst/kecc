@@ -151,23 +151,16 @@ class Zn(val modulus: MPZ) {
         }
 
         fun pow(n: MPZ): EZn {
-            println("MPZ: $this ^ $n")
             return perform(MPZ::powm, n)
         }
 
         fun pow(n: Long): EZn = when {
             n == 0L -> EZN_ONE
             n < 0 -> {
-                println("INVERSE: $invert")
-                println("n: $n, -n: ${-n}")
-                println("Calling $invert.pow(${-n})")
-                if (n == -n) {
-                    println("Calling with MPZ.")
+                if (n == -n)
                     invert?.pow(-(n.toMPZ())) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
-                } else {
-                    println("Calling recursive.")
+                else
                     invert?.pow(-n) ?: throw ArithmeticException("$value has no inverse (mod $modulus).")
-                }
             }
             else -> EZn(value.powmUi(n, modulus), ring)
         }
@@ -191,8 +184,6 @@ class Zn(val modulus: MPZ) {
         private fun computeSqrtTonelliShanks(randState: RandState): EZn {
             val (q, e) = decomposeModulus()
             val generator = findGenerator(randState)
-//            val generator = findGenerator(randState, EZn(MPZ("344057873012818")))
-            println("Generator: $generator, ${generator.legendre}")
             var y = generator.pow(q)
             val xInitial = pow((q - 1) / 2)
             val bInitial = this * xInitial * xInitial
@@ -208,18 +199,24 @@ class Zn(val modulus: MPZ) {
                 return aux2(m, x * t, b * t.pow(2))
             }
 
+            tailrec fun aux(r: Long = e,
+                            x: EZn = xModified,
+                            b: EZn = bInitial): EZn {
+                if (b.value == MPZ_ONE) return x
+                TODO()
+            }
+
             var x = xModified
             var r = e
             var b = bInitial
             while (b.value != MPZ_ONE) {
-                var m = 1L
-                var t1 = b
-                while (m < r) {
-                    t1 = t1 * t1
-                    if (t1.value == MPZ_ONE)
-                        break
-                    m += 1
+                tailrec fun calcM(m: Long = 1L, t1: EZn = b): Long {
+                    if (m == r) return m
+                    val t1New = t1 * t1
+                    if (t1New.value == MPZ_ONE) return m
+                    return calcM(m+1, t1New)
                 }
+                val m = calcM()
 
                 if (r == m)
                     throw RuntimeException("Uh oh")
