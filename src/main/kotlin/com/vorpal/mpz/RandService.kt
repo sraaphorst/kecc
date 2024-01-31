@@ -1,4 +1,4 @@
-package org.example.mpz
+package com.vorpal.mpz
 
 import it.unich.jgmp.RandState
 

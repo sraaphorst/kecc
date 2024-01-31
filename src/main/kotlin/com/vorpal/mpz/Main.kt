@@ -1,7 +1,8 @@
-package org.example
+package com.vorpal.mpz
 
 import it.unich.jgmp.MPZ
-import mpz.*
+import com.vorpal.mpz.*
+import com.vorpal.mpz.Zn
 
 
 fun main() {

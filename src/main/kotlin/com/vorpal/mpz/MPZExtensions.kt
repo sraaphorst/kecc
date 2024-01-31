@@ -1,32 +1,18 @@
-package mpz
+package com.vorpal.mpz
 
 import it.unich.jgmp.MPZ
 import it.unich.jgmp.RandState
 import it.unich.jgmp.MPZ.PrimalityStatus
-import it.unich.jgmp.MPZ.init2
-import org.example.mpz.RandService
+import com.vorpal.mpz.RandService
+import com.vorpal.mpz.toKotlinNullable
 import java.util.*
 import kotlin.math.absoluteValue
+
 
 // TODO: Factor randState out of here and into parameters for FP usage.
 private fun randomMPZ(randState: RandState, max: MPZ): MPZ {
     return MPZ.urandomm(randState, max)
 }
-
-// ***************
-// *** HELPERS ***
-// ***************
-fun <T> Optional<T>.toKotlinNullable(): T? = orElse(null)
-
-fun Long.pow(exponent: Int): Long = when (exponent) {
-        0 -> 1L
-        1 -> this
-        else -> {
-            val halfPower = pow(exponent / 2)
-            if (exponent % 2 == 0) halfPower * halfPower
-            else this * halfPower * halfPower
-        }
-    }
 
 // *****************
 // *** CONSTANTS ***

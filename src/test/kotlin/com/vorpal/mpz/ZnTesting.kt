@@ -1,4 +1,4 @@
-package mpz
+package com.vorpal.mpz
 
 import it.unich.jgmp.MPZ
 import io.kotest.core.spec.style.StringSpec
@@ -6,7 +6,10 @@ import io.kotest.property.arbitrary.arbitrary
 import io.kotest.property.arbitrary.filter
 import io.kotest.property.checkAll
 import it.unich.jgmp.MPZ.PrimalityStatus
-import org.example.mpz.RandService
+import com.vorpal.mpz.Legendre
+import com.vorpal.mpz.MPZ_ZERO
+import com.vorpal.mpz.Zn
+import com.vorpal.mpz.RandService
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue

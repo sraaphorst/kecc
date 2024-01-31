@@ -1,4 +1,4 @@
-package mpz
+package com.vorpal.mpz
 
 import java.io.File
 import kotlin.random.Random
