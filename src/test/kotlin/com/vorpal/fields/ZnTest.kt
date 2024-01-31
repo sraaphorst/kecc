@@ -1,34 +1,34 @@
-package com.vorpal.mpz
+package com.vorpal.fields
 
+import com.vorpal.mpz.LargePrimeArbitrary
+import com.vorpal.mpz.Legendre
+import com.vorpal.mpz.MPZ_ZERO
 import it.unich.jgmp.MPZ
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.property.arbitrary.arbitrary
 import io.kotest.property.arbitrary.filter
 import io.kotest.property.checkAll
 import it.unich.jgmp.MPZ.PrimalityStatus
-import com.vorpal.mpz.Legendre
-import com.vorpal.mpz.MPZ_ZERO
-import com.vorpal.mpz.Zn
-import com.vorpal.mpz.RandService
+import com.vorpal.services.RandService
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 
-class ZnTesting: StringSpec({
+class ZnTest: StringSpec({
     val primeFlags = setOf(PrimalityStatus.PRIME, PrimalityStatus.PROBABLY_PRIME)
+    val primeGenerator = LargePrimeArbitrary.create()
+    val randState = RandService.randState
 
     "Primality testing" {
-        checkAll(LargePrimeArbitrary.create()) { prime ->
+        checkAll(primeGenerator) { prime ->
             assertTrue { prime.isProbabPrime(15) in primeFlags }
         }
     }
 
     "Inverse testing" {
-        checkAll(LargePrimeArbitrary.create()) { prime ->
+        checkAll(primeGenerator) { prime ->
             val ring = Zn(prime)
-
-            val randState = RandService.randState
             val elemArb = arbitrary {_ -> ring.EZn(MPZ.urandomm(randState, prime)) }.filter { it.value > MPZ_ZERO }
 
             checkAll(elemArb) { elem ->
@@ -40,10 +40,8 @@ class ZnTesting: StringSpec({
     }
 
     "sqrt testing" {
-        checkAll(LargePrimeArbitrary.create()) { prime ->
+        checkAll(primeGenerator) { prime ->
             val ring = Zn(prime)
-
-            val randState = RandService.randState
             val elemArb = arbitrary { _ -> ring.EZn(MPZ.urandomm(randState, prime)) }
                 .filter { it.value > MPZ_ZERO }
                 .filter { it.legendre == Legendre.RESIDUE }

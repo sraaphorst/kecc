@@ -1,8 +1,6 @@
-package com.vorpal.mpz
-
 import it.unich.jgmp.MPZ
 import com.vorpal.mpz.*
-import com.vorpal.mpz.Zn
+import com.vorpal.fields.Zn
 
 
 fun main() {
@@ -34,17 +32,17 @@ fun main() {
 
 //    val v = MPZ("25834999554458755255")
 //    val m = MPZ("69256690406912238301")
-    val v = MPZ("410468015445649")
-    val m = MPZ("755255173926857")
+    val v = MPZ("10459268535876674306")
+    val m = MPZ("19963065620013555197")
     val s = MPZ("359242579880426") // as confirmed by C++ program
-    val ring4 = Zn(m)
-    val elem = ring4.EZn(v)
-    val sqrt_elem = ring4.EZn(s)
+    val ring = Zn(m)
+    val elem = ring.EZn(v)
+    val sqrtElem = ring.EZn(s)
     println("Legendre of $elem is ${elem.legendre}")
     println("Inverse is ${elem.invert}")
     println("Product is ${elem.invert!! * elem}")
     println("Calculating square root...")
-    println("Should be ${sqrt_elem}: ${sqrt_elem * sqrt_elem}")
+    println("Should be ${sqrtElem}: ${sqrtElem * sqrtElem}")
     println("Sqrt is ${elem.sqrt}")
     println("Squared is ${elem.sqrt!! * elem.sqrt!!}")
 }
